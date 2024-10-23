@@ -1,0 +1,71 @@
+ workflows:
+  android-workflow:
+    
+    # Add Your workflow name
+    name: Flutter Workflow
+    environment:
+      xcode: latest
+      cocoapods: default
+      # android_signing:
+      #   - NewsShield
+      # ios_signing:
+      #   distribution_type: app_store
+      #   bundle_identifier: com.newsshield.io
+      
+    # Change the groups according to your code-magic setup
+      # groups:
+      #   - app-config
+      #   - google-cred
+      #   - google-play
+      # flutter: stable
+    # integrations:
+    #   app_store_connect: CodeMagic API Key
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/Library/Caches/CocoaPods
+        - $HOME/.pub-cache
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Create config folder
+        script: |
+          mkdir -p $CM_BUILD_DIR/config
+      - name: Create app_config file
+        script: |
+          echo $APP_CONFIG_UAT | base64 --decode > $CM_BUILD_DIR/config/app_config.json
+      
+      # Can add your custom script before building the app.....
+      # - name: Generate google-services.json file
+      #   script: |
+      #     echo $GOOGLE_CRED | base64 --decode > $CM_BUILD_DIR/android/app/google-services.json
+      # - name: Generate GoogleServices.plist file
+      #   script: |
+      #     echo $IOS_FIREBASE | base64 --decode > $CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist
+      - name: Get Flutter Packages
+        script: flutter pub get
+      - name: Build .aab
+        script: flutter build appbundle --release
+      - name: KeyChain
+        script: |
+          keychain initialize
+          keychain add-certificates
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcodebuild -allowProvisioningUpdates
+          xcode-project use-profiles
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Flutter build ipa
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/**/outputs/bundle/**/*.aab
+      - build/ios/ipa/*.ipa
